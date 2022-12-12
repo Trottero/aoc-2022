@@ -2,7 +2,8 @@ from typing import List
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-
+import time
+start = time.perf_counter()
 with open('./12/input.txt') as f:
     lines = [[x for x in line.strip()] for line in f.readlines()]
 
@@ -58,5 +59,8 @@ paths = {k: v for k, v in paths.items() if G.nodes[k]['val'] == 0}
 # find the shortest path
 path = min(paths.values(), key=len)
 
-print(path)
+# print(path)
 print(len(path) - 1)  # -1 for the starting node ;)
+
+end = time.perf_counter()
+print(f"Time taken: {end - start}")
