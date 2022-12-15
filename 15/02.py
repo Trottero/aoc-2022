@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import ast
 import time
 from tqdm import tqdm
+from shapely import Polygon, MultiPolygon, Point
+from shapely.ops import unary_union
+from shapely.plotting import plot_polygon, plot_points
+
 
 with open('./15/input.txt') as f:
     lines = [tuple([int(x) for x in re.findall("[-+]?[\d]+", line)]) for line in f.readlines()]
@@ -20,6 +24,17 @@ class Sensor():
         self.sensor_location = loc
         self.closest_beacon_location = closest_beacon
         self.beacon_distance = manhattan_distance(self.sensor_location, self.closest_beacon_location)
+
+    def as_polygon(self) -> Polygon:
+        polygon_locations = []
+        polygon_locations.append((self.sensor_location[0], self.sensor_location[1] - self.beacon_distance))
+        polygon_locations.append((self.sensor_location[0] + self.beacon_distance, self.sensor_location[1]))
+        polygon_locations.append((self.sensor_location[0], self.sensor_location[1] + self.beacon_distance))
+        polygon_locations.append((self.sensor_location[0] - self.beacon_distance, self.sensor_location[1]))
+        return Polygon(polygon_locations)
+
+    def beacon_poly(self) -> Point:
+        return Point(self.closest_beacon_location)
 
     def line_at_y(self, y):
         # Check if the line is even out of range
@@ -37,39 +52,46 @@ class Sensor():
 
 sensors = [Sensor((data[0], data[1]), (data[2], data[3])) for data in lines]
 
-line_coords = set()
-
 start_time = time.perf_counter()
 
 
-def range_list_covers(range_list, x_start, x_max):
-    for x in range(x_start, x_max + 1):
-        covered = False
-        for fr, to in range_list:
-            if fr <= x <= to:
-                covered = True
-                break
+polygons = [sensor.as_polygon().buffer(0) for sensor in sensors]
+# beacon_polys = [sensor.beacon_poly().buffer(0) for sensor in sensors]
 
-        if not covered:
-            return False, x
+# polygons.extend(beacon_polys)
 
-    return True, None
+# # plot a single polygon
+# for poly in polygons:
+#     plot_polygon(poly)
 
+# plt.gca().invert_yaxis()
+# plt.show()
 
 x_max = 4_000_000
 y_max = 4_000_000
 
-for y in tqdm(range(0, y_max + 1)):
-    range_list = []
-    for sensor in sensors:
-        fr, to = sensor.line_at_y(y)
-        if fr is not None:
-            range_list.append((fr, to))
 
-    covers, x2 = range_list_covers(range_list, 0, x_max)
-    if not covers:
-        print('success!', x2, y)
-        print('result:', x2 * 4_000_000 + y)
-        break
+combined_poly: MultiPolygon = unary_union(polygons)
 
-print(time.perf_counter() - start_time)
+# plot_polygon(combined_poly)
+# plt.gca().invert_yaxis()
+# plt.show()
+
+beacon_bounds = Polygon([(0, 0), (x_max, 0), (x_max, y_max), (0, y_max)])
+print(beacon_bounds.area)
+
+
+beacon_area = beacon_bounds.difference(combined_poly)
+
+# plot_polygon(beacon_area)
+# plt.gca().invert_yaxis()
+# plt.show()
+# print(type(beacon_area))
+
+if type(beacon_area) == MultiPolygon:
+    for poly in beacon_area.geoms:
+        print(poly.centroid.x, poly.centroid.y)
+else:
+    print(beacon_area.centroid.x * 4_000_000 + beacon_area.centroid.y)
+
+print('time taken: ', time.perf_counter() - start_time)
