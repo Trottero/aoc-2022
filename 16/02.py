@@ -128,36 +128,55 @@ def dfs(graph: nx.Graph, elephant: Actor, human: Actor, open_nodes: list, score:
             actor.position = actor.target
             actor.target = None
 
+    if human_copy.has_target() and elephant_copy.has_target():
+        raise Exception("Both actors have a target THIS SHOULD NEVER HAPPEN!")
+
     scores = []
-    for node_ind, potential_target in enumerate(graph.nodes()):
-        if potential_target in open_nodes_copy or potential_target in [
-                human_copy.position, elephant_copy.position, human_copy.target, elephant_copy.target]:
-            # Assume that we just wait here
-            scores.append(new_score + (minutes_left * sum(graph.nodes[d]['flow_rate'] for d in open_nodes_copy)))
-            continue
 
-        # Attempt to assign a target to the actors
-        for actor in [human_copy, elephant_copy]:
-            # Check if actor already has a target
-            if actor.has_target():
+    # Check xor of targets
+    if human_copy.has_target() != elephant_copy.has_target():
+        actor_context = human_copy if not human_copy.has_target() else elephant_copy
+        for potential_target in graph.nodes():
+            if potential_target in open_nodes_copy or potential_target in [human_copy.target, elephant_copy.target]:
+                # Assume that we just wait here
+                scores.append(new_score + (minutes_left * sum(graph.nodes[d]['flow_rate'] for d in open_nodes_copy)))
                 continue
 
-            # check if the potential target is already taken by another agent
-            if potential_target in [human_copy.target, elephant_copy.target]:
-                continue
-
-            # We found a valid potential target, find a path to it.
-            actor.target = potential_target
-            path_cost = get_path_cost(graph, actor.position, potential_target)
+                # We found a valid potential target, find a path to it.
+            actor_context.target = potential_target
+            path_cost = get_path_cost(graph, actor_context.position, potential_target)
             # +1 because we need to wait one minute at the target node to activate it
-            actor.stall = path_cost + 1
+            actor_context.stall = path_cost + 1
 
-        # Both check if both actors have a target, or if we are at the last node
-        if human_copy.has_target() and elephant_copy.has_target():
             # if human_copy.has_target() and elephant_copy.has_target():
             path_score = dfs(graph, elephant_copy, human_copy, open_nodes_copy, new_score, minutes_left)
             scores.append(path_score)
 
+        return max(scores)
+
+    # Both actors have no target, find a target for each
+    for human_potential_target in graph.nodes():
+        if human_potential_target in open_nodes_copy:
+            continue
+        for elephant_potential_target in graph.nodes():
+            if human_potential_target == elephant_potential_target:
+                continue
+            if elephant_potential_target in open_nodes_copy:
+                continue
+
+            human_copy.target = human_potential_target
+            elephant_copy.target = elephant_potential_target
+
+            human_path_cost = get_path_cost(graph, human_copy.position, human_potential_target)
+            elephant_path_cost = get_path_cost(graph, elephant_copy.position, elephant_potential_target)
+
+            human_copy.stall = human_path_cost + 1
+            elephant_copy.stall = elephant_path_cost + 1
+
+            path_score = dfs(graph, elephant_copy, human_copy, open_nodes_copy, new_score, minutes_left)
+            scores.append(path_score)
+    if len(scores) == 0:
+        return new_score
     return max(scores)
 
 
