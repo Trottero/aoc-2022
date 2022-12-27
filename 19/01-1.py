@@ -52,6 +52,12 @@ class State():
     def can_build(self, robot: Robot):
         return np.all(self.resources >= robot.cost)
 
+    def should_buid(self, robot: Robot, max_reqs):
+        i = np.nonzero(robot.resource)[0]
+        if robot.resource[-1] != 0:
+            return True
+        return self.current_yield[i] < max_reqs[i]
+
     def process(self):
         self.resources += self.current_yield
         self.minutes_left -= 1
@@ -60,38 +66,36 @@ class State():
         return hash((tuple(self.current_yield), tuple(self.resources), self.minutes_left))
 
 
-def explore_state(visited_states, state: State, bots):
-    if state.minutes_left <= 0:
+def explore_state(state: State, bots, max_reqs):
+    if state.minutes_left == 0:
         # Return geodes
         return state.resources[-1]
-
-    # Check if we have already visited if yes then just return it.
-    if state in visited_states:
-        return visited_states[state]
+    if state.minutes_left == 1:
+        new_state = state.copy()
+        new_state.process()
+        return new_state.resources[-1]
 
     geodes = [0]
 
     # Explore option where we don't do anything
     new_state = state.copy()
     new_state.process()
-    geode_res = explore_state(visited_states, new_state, bots)
-    visited_states[state] = geode_res
+    geode_res = explore_state(new_state, bots, max_reqs)
     geodes.append(geode_res)
 
     for bot in bots:
-        if state.can_build(bot):
+        if state.can_build(bot) and state.should_buid(bot, max_reqs):
             new_state = state.copy()
             new_state.resources -= bot.cost
             new_state.process()
             new_state.add_yield(bot.resource)
-            geode_res = explore_state(visited_states, new_state, bots)
-            visited_states[state] = geode_res
+            geode_res = explore_state(new_state, bots, max_reqs)
             geodes.append(geode_res)
 
     return max(geodes)
 
 
-minutes = 18
+minutes = 24
 
 max_g = []
 for id, ore_bot_cost, clay_bot_cost, obsidian_bot_cost_ore, obsidian_bot_cost_clay, geode_bot_cost_ore, geode_bot_cost_obs in lines:
@@ -102,7 +106,11 @@ for id, ore_bot_cost, clay_bot_cost, obsidian_bot_cost_ore, obsidian_bot_cost_cl
 
     current_state = State(np.array([1, 0, 0, 0]), np.array([0, 0, 0, 0]), minutes)
 
-    r = explore_state({}, current_state, [ore_bot, clay_bot, obsidian_bot, geode_bot])
+    bots = [ore_bot, clay_bot, obsidian_bot, geode_bot]
+    resource_costs = np.array([bot.cost for bot in bots])
+    max_reqs = np.max(resource_costs, axis=0)
+
+    r = explore_state(current_state, bots, max_reqs)
     print(r)
     max_g.append(r)
 print(max_g)
