@@ -64,7 +64,7 @@ def is_ever_possible_to_build(current_yield, current_resources, bot_type, bot_co
 
 def has_potential(current_resources, current_yield, max_so_far, time_left):
     # Lets say that we have enough resources to build a bot for every minute left.
-    max_potential = sum([i + 1 for i in range(time_left - 1)])
+    max_potential = sum([i + 1 for i in range(time_left)])
     max_potential += current_resources[-1]
     max_potential += current_yield[-1] * time_left
     return max_potential > max_so_far
@@ -135,7 +135,7 @@ def search(current_yield, current_resources, bots, max_reqs, minutes):
     return max(geode_count)
 
 
-minutes = 32
+minutes = 24
 
 max_geodes = []
 for id, ore_bot_cost, clay_bot_cost, obsidian_bot_cost_ore, obsidian_bot_cost_clay, geode_bot_cost_ore, geode_bot_cost_obs in tqdm.tqdm(
@@ -158,9 +158,3 @@ print('No of geodes:', max_geodes)
 quality_levels = [geode * i for i, geode in max_geodes]
 print('Quality levels: ', quality_levels)
 print('Sum of quality levels: ', sum(quality_levels))
-
-mult = 1
-for id, geodes in max_geodes:
-    mult *= geodes
-
-print('Mult: ', mult)
