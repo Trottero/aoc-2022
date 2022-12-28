@@ -22,17 +22,29 @@ def add(a, b):
     return [aa + bb for aa, bb in zip(a, b)]
 
 
+def add_remove(a, b, r):
+    return [aa + bb - rr for aa, bb, rr in zip(a, b, r)]
+
+
+def remove(resources, costs):
+    return [aa - bb for aa, bb in zip(resources, costs)]
+
+
 def can_build(resources, cost):
     return all(r >= c for r, c in zip(resources, cost))
 
 
-def should_build(current_yield, max_reqs, bot_yield):
-    for i, y in enumerate(bot_yield):
-        if y == 0:
-            continue
-        if y == len(bot_yield) - 1:
-            return True
-        return current_yield[i] < max_reqs[i]
+def should_build(current_yield, max_reqs, bot_type):
+    if bot_type == 'geode':
+        return True
+    if bot_type == 'ore':
+        return current_yield[0] < max_reqs[0]
+    if bot_type == 'clay':
+        return current_yield[1] < max_reqs[1]
+    if bot_type == 'obsidian':
+        return current_yield[2] < max_reqs[2]
+    else:
+        raise ValueError('Unknown bot type')
 
 
 def search(current_yield, current_resources, bots, max_reqs, minutes):
@@ -46,9 +58,14 @@ def search(current_yield, current_resources, bots, max_reqs, minutes):
     # handle not building anything.
     nothing = search(current_yield, add(current_resources, current_yield), bots, max_reqs, minutes - 1)
     geode_count = [nothing]
-    for bot_cost, bot_yield in bots:
-        if can_build(current_resources, bot_cost) and should_build(current_yield, max_reqs, bot_yield):
-            pass
+
+    for bot_cost, bot_yield, bot_type in bots:
+        if should_build(current_yield, max_reqs, bot_type) and can_build(current_resources, bot_cost):
+            geodes = search(
+                add(current_yield, bot_yield),
+                add_remove(current_resources, current_yield, bot_cost),
+                bots, max_reqs, minutes - 1)
+            geode_count.append(geodes)
 
     return max(geode_count)
 
@@ -57,16 +74,20 @@ minutes = 24
 
 max_geodes = []
 for id, ore_bot_cost, clay_bot_cost, obsidian_bot_cost_ore, obsidian_bot_cost_clay, geode_bot_cost_ore, geode_bot_cost_obs in lines:
-    ore_bot = ([ore_bot_cost, 0, 0, 0], type_to_yield['ore'])
-    clay_bot = ([clay_bot_cost, 0, 0, 0], type_to_yield['clay'])
-    obsidian_bot = ([obsidian_bot_cost_ore, obsidian_bot_cost_clay, 0, 0], type_to_yield['obsidian'])
-    geode_bot = ([geode_bot_cost_ore, 0, geode_bot_cost_obs, 0], type_to_yield['geode'])
+    ore_bot = ([ore_bot_cost, 0, 0, 0], type_to_yield['ore'], 'ore')
+    clay_bot = ([clay_bot_cost, 0, 0, 0], type_to_yield['clay'], 'clay')
+    obsidian_bot = ([obsidian_bot_cost_ore, obsidian_bot_cost_clay, 0, 0], type_to_yield['obsidian'], 'obsidian')
+    geode_bot = ([geode_bot_cost_ore, 0, geode_bot_cost_obs, 0], type_to_yield['geode'], 'geode')
 
     bots = [ore_bot, clay_bot, obsidian_bot, geode_bot]
     resource_costs = np.array([bot[0] for bot in bots])
-    max_reqs = np.max(resource_costs, axis=0)
+    max_reqs = [max(ore_bot_cost, clay_bot_cost, obsidian_bot_cost_ore, geode_bot_cost_ore), obsidian_bot_cost_clay, geode_bot_cost_obs]
 
-    max_for_blueprint = search(np.array([1, 0, 0, 0]), np.zeros(4), bots, max_reqs, minutes)
+    max_for_blueprint = search([1, 0, 0, 0], [0, 0, 0, 0], bots, max_reqs, minutes)
     print(max_for_blueprint)
     max_geodes.append(max_for_blueprint)
+
 print(max_geodes)
+quality_levels = [geode * (i + 1) for i, geode in enumerate(max_geodes)]
+print(quality_levels)
+print(sum(quality_levels))
