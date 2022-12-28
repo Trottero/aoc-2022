@@ -8,7 +8,7 @@ import ast
 import tqdm
 
 with open('./19/input.txt') as f:
-    lines = [[int(match) for match in re.findall(r'\d+', line)] for line in f.readlines()]
+    lines = [[int(match) for match in re.findall(r'\d+', line)] for line in f.readlines()][:3]
 
 print(lines)
 
