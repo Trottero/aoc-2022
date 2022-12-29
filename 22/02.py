@@ -35,38 +35,114 @@ def print_board(board):
 
 print_board(lines)
 
-# overflow_map = {
-#     1: (50, 0),
-#     2: (100, 0),
-#     3: (50, 50),
-#     4: (0, 100),
-#     5: (50, 100),
-#     6: (0, 150),
-# }
 
-overflow_map = {
-    1: (8, 0),
-    2: (0, 4),
-    3: (4, 4),
-    4: (8, 4),
-    5: (8, 8),
-    6: (8, 12),
+tile_width = 50
+
+overflower_coords = {
+    (50, 0): 1,
+    (100, 0): 2,
+    (50, 50): 3,
+    (0, 100): 4,
+    (50, 100): 5,
+    (0, 150): 6,
 }
 
-tile_width = 4
-
 overflower = {
-    1: {
-        '+y': {
+    1: {  # 1
+        '+y': {  # done
+            'new_dir': '+x',
+            'project': lambda x, y: (0,  x - 50 + 150),
+        },
+        '-x': {  # done
+            'new_dir': '+x',
+            'project': lambda x, y: (0, 149 - y),
+        }
+    },
+    2: {  # 2
+        '+y': {  # done
+            'new_dir': '+y',
+            'project': lambda x, y: (x - 100, 199),
+        },
+        '-y': {  # done
+            'new_dir': '-x',
+            'project': lambda x, y: (99, x - 50),
+        },
+        '+x': {  # done
+            'new_dir': '-x',
+            'project': lambda x, y: (99, 149 - y),
+        }
+    },
+    3: {  # 3
+        '-x': {  # done
             'new_dir': '-y',
-            'project': lambda x, y: (x + tile_width, tile_width - y - 1),
+            'project': lambda x, y: (y - 50, 100),
+        },
+        '+x': {  # done
+            'new_dir': '+y',
+            'project': lambda x, y: (50 + y, 49),
+        }
+    },
+    4: {  # 4
+        '-x': {  # done
+            'new_dir': '+x',
+            'project': lambda x, y: (50, 49 - (y - 100)),
+        },
+        '+y': {  # done
+            'new_dir': '+x',
+            'project': lambda x, y: (50, 50 + x),
+        }
+    },
+    5: {  # 5
+        '+x': {  # done
+            'new_dir': '-x',
+            'project': lambda x, y: (149, 49 - (y - 100)),
+        },
+        '-y': {  # done
+            'new_dir': '-x',
+            'project': lambda x, y: (49, 100 + x),
+        }
+    },
+    6: {  # 6
+        '+x': {
+            'new_dir': '+y',
+            'project': lambda x, y: (y - 100, 149),
         },
         '-x': {
             'new_dir': '-y',
-            'project': lambda x, y: (tile_width - x - 1, tile_width - y - 1),
+            'project': lambda x, y: (y - 100, 0),
+        },
+        '-y': {
+            'new_dir': '-y',
+            'project': lambda x, y: (x + 100, 0),
         }
-    },
+    }
 }
+
+# Test 1:
+print(overflower[1]['+y']['project'](51, 0) == (0, 151) and overflower[1]['+y']['new_dir'] == '+x')
+print(overflower[1]['-x']['project'](50, 5) == (0, 149 - 5) and overflower[1]['-x']['new_dir'] == '+x')
+
+# Test 2:
+print(overflower[2]['+y']['project'](101, 0) == (1, 199) and overflower[2]['+y']['new_dir'] == '+y')
+print(overflower[2]['-y']['project'](101, 49) == (99, 51) and overflower[2]['-y']['new_dir'] == '-x')
+print(overflower[2]['+x']['project'](149, 5) == (99, 144) and overflower[2]['+x']['new_dir'] == '-x')
+
+# Test 3:
+print(overflower[3]['-x']['project'](50, 95) == (45, 100) and overflower[3]['-x']['new_dir'] == '-y')
+print(overflower[3]['+x']['project'](99, 52) == (102, 49) and overflower[3]['+x']['new_dir'] == '+y')
+
+# test 4:
+print(overflower[4]['-x']['project'](0, 100) == (50, 49) and overflower[4]['-x']['new_dir'] == '+x')
+print(overflower[4]['+y']['project'](48, 100) == (50, 98) and overflower[4]['+y']['new_dir'] == '+x')
+
+# test 5:
+print(overflower[5]['+x']['project'](99, 101) == (149, 48) and overflower[5]['+x']['new_dir'] == '-x')
+print(overflower[5]['-y']['project'](51, 149) == (49, 151) and overflower[5]['-y']['new_dir'] == '-x')
+
+# test 6:
+print(overflower[6]['+x']['project'](49, 151) == (51, 149) and overflower[6]['+x']['new_dir'] == '+y')
+print(overflower[6]['-x']['project'](0, 199) == (99, 0) and overflower[6]['-x']['new_dir'] == '-y')
+print(overflower[6]['-y']['project'](1, 199) == (101, 0) and overflower[6]['-y']['new_dir'] == '-y')
 
 directions = {
     '+y': (0, -1),
@@ -81,14 +157,6 @@ direction_to_score = {
     '-x': 2,
     '+y': 3,
 }
-
-inverse_directions = {
-    '+y': '-y',
-    '-y': '+y',
-    '+x': '-x',
-    '-x': '+x',
-}
-
 
 rotations = {
     '+y': {
@@ -128,32 +196,33 @@ def rotate(current_direction, turn):
     return rotations[current_direction][turn]
 
 
+def find_tile_seg(x, y):
+    for (xkey, ykey), value in overflower_coords.items():
+        if xkey <= x < xkey + tile_width and ykey <= y < ykey + tile_width:
+            return value
+
+
 def move(x, y, direction):
     next_tile = get_next_tile(lines, x, y, direction)
     if next_tile is not None:
         if next_tile == '#':
-            return x, y  # Do not move
+            return x, y, direction  # Do not move
         dx, dy = directions[direction]
-        return x + dx, y + dy  # Process the move
+        return x + dx, y + dy, direction  # Process the move
 
-    # We ran out of the board reverse direction and look until we find another none tile
-    inverse_direction = inverse_directions[direction]
-    dx, dy = directions[inverse_direction]
+    # Next is none, we need to wrap around the cube.
+    value = find_tile_seg(x, y)
+    # print('Wrapping around tile: ', x, y, direction, value)
+    newx, newy = overflower[value][direction]['project'](x, y)
+    new_dir = overflower[value][direction]['new_dir']
 
-    x_temp = x
-    y_temp = y
+    # Dont move if we are on a wall
+    if lines[newy][newx] == '#':
+        return x, y, direction
 
-    tile = get_next_tile(lines, x_temp, y_temp, inverse_direction)
-    while tile is not None:
-        x_temp += dx
-        y_temp += dy
-        last_tile = tile
-        tile = get_next_tile(lines, x_temp, y_temp, inverse_direction)
-
-    if last_tile == '#':
-        return x, y  # Do not move
-
-    return x_temp, y_temp  # Process the move
+    # wrapped to
+    # print('Wrapped to: ', newx, newy, new_dir)
+    return newx, newy, new_dir
 
 
 # Find the first available tile in the first line as starting pos
@@ -165,7 +234,7 @@ direction = '+x'
 for instruction in instructions:
     if isinstance(instruction, int):
         for i in range(instruction):
-            x, y = move(x, y, direction)
+            x, y, direction = move(x, y, direction)
     else:
         direction = rotate(direction, instruction)
 
